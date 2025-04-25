@@ -30,4 +30,5 @@ services:
 
 networks:
   oauth-proxy-network:
-    driver: bridge
+    external:
+      name: oauth-proxy-network
