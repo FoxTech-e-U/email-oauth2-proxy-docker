@@ -64,8 +64,8 @@ local_address = 0.0.0.0
 permission_url = https://login.microsoftonline.com/common/oauth2/v2.0/authorize
 token_url = https://login.microsoftonline.com/common/oauth2/v2.0/token
 oauth2_scope = offline_access https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/POP.AccessAsUser.All https://outlook.office.com/SMTP.Send
-oauth2_redirect_uri = $REDIRECT_URI
-oauth2_redirect_listen_address = ${REDIRECT_LISTEN:-http://0.0.0.0:12345/}
+redirect_uri = $REDIRECT_URI
+redirect_listen_address = ${REDIRECT_LISTEN:-http://0.0.0.0:12345/}
 client_id = $CLIENT_ID
 client_secret = $CLIENT_SECRET
 EOL
