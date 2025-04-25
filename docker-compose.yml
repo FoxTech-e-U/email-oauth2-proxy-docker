@@ -14,6 +14,8 @@ services:
       # SMTP Ports
       - "${SMTP_PORT:-1025}:1025"
       - "${SMTPS_PORT:-1587}:1587"
+    env_file:
+      - stack.env
     environment:
       - EMAIL_PROVIDER=${EMAIL_PROVIDER:-office365}
       - CLIENT_ID=${CLIENT_ID}
@@ -23,8 +25,3 @@ services:
       - DEBUG_MODE=${DEBUG_MODE:-false}
     restart: unless-stopped
     network_mode: ${NETWORK_MODE:-bridge}
-
-# Verweis auf die stack.env Datei
-# Dadurch muss der Nutzer nicht --env-file stack.env beim Aufruf angeben
-env_file:
-  - stack.env
