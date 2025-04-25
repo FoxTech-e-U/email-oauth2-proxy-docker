@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   email-oauth2-proxy:
     image: yggdrasilodin/email-oauth2-proxy:latest
