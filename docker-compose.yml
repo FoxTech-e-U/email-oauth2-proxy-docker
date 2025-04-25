@@ -1,0 +1,32 @@
+version: '3'
+
+services:
+  email-oauth2-proxy:
+    image: yggdrasilodin/email-oauth2-proxy:latest
+    container_name: email-oauth2-proxy
+    volumes:
+      - ./config:/config
+    ports:
+      # IMAP Ports
+      - "${IMAP_PORT:-1143}:1143"
+      - "${IMAPS_PORT:-1993}:1993"
+      # POP3 Ports
+      - "${POP3_PORT:-1110}:1110"
+      - "${POP3S_PORT:-1995}:1995"
+      # SMTP Ports
+      - "${SMTP_PORT:-1025}:1025"
+      - "${SMTPS_PORT:-1587}:1587"
+    environment:
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-office365}
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - EMAIL_ADDRESS=${EMAIL_ADDRESS}
+      - REDIRECT_URI=${REDIRECT_URI:-http://localhost:12345/}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+    restart: unless-stopped
+    network_mode: ${NETWORK_MODE:-bridge}
+
+# Verweis auf die stack.env Datei
+# Dadurch muss der Nutzer nicht --env-file stack.env beim Aufruf angeben
+env_file:
+  - stack.env
