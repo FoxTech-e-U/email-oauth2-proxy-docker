@@ -13,118 +13,125 @@ if [ ! -f "$CONFIG_FILE" ]; then
 [DEFAULT]
 local_server_auth = True
 
+[Server setup]
+# Konfiguration basierend auf den Umgebungsvariablen
+
 EOL
 
     # Provider-spezifische Konfiguration auf Basis der Umgebungsvariablen
     if [ "$EMAIL_PROVIDER" = "office365" ]; then
         cat >> "$CONFIG_FILE" << EOL
-[Office365]
-type = IMAP
+[IMAP-1143]
+server_address = outlook.office365.com
+server_port = 993
 local_address = 0.0.0.0
-local_port = 1143
-remote_address = outlook.office365.com
-remote_port = 993
 ssl = True
 
-type = IMAPS
+[IMAPS-1993]
+server_address = outlook.office365.com
+server_port = 993
 local_address = 0.0.0.0
-local_port = 1993
-remote_address = outlook.office365.com
-remote_port = 993
 ssl = True
 
-type = POP
+[POP-1110]
+server_address = outlook.office365.com
+server_port = 995
 local_address = 0.0.0.0
-local_port = 1110
-remote_address = outlook.office365.com
-remote_port = 995
 ssl = True
 
-type = POP3S
+[POP3S-1995]
+server_address = outlook.office365.com
+server_port = 995
 local_address = 0.0.0.0
-local_port = 1995
-remote_address = outlook.office365.com
-remote_port = 995
 ssl = True
 
-type = SMTP
+[SMTP-1025]
+server_address = smtp.office365.com
+server_port = 587
+server_starttls = True
 local_address = 0.0.0.0
-local_port = 1025
-remote_address = smtp.office365.com
-remote_port = 587
-ssl = STARTTLS
 
-type = SMTPS
+[SMTPS-1587]
+server_address = smtp.office365.com
+server_port = 587
+server_starttls = True
 local_address = 0.0.0.0
-local_port = 1587
-remote_address = smtp.office365.com
-remote_port = 587
-ssl = STARTTLS
 
-[Office365:$EMAIL_ADDRESS]
-oauth2_client_id = $CLIENT_ID
-oauth2_client_secret = $CLIENT_SECRET
+[Account setup]
+# Office 365 Konto-Konfiguration
+
+[$EMAIL_ADDRESS]
+permission_url = https://login.microsoftonline.com/common/oauth2/v2.0/authorize
+token_url = https://login.microsoftonline.com/common/oauth2/v2.0/token
 oauth2_scope = offline_access https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/POP.AccessAsUser.All https://outlook.office.com/SMTP.Send
 oauth2_redirect_uri = $REDIRECT_URI
-oauth2_token_endpoint = https://login.microsoftonline.com/common/oauth2/v2.0/token
-oauth2_auth_endpoint = https://login.microsoftonline.com/common/oauth2/v2.0/authorize
+client_id = $CLIENT_ID
+client_secret = $CLIENT_SECRET
 EOL
 
     elif [ "$EMAIL_PROVIDER" = "gmail" ]; then
         cat >> "$CONFIG_FILE" << EOL
-[Gmail]
-type = IMAP
+[IMAP-1143]
+server_address = imap.gmail.com
+server_port = 993
 local_address = 0.0.0.0
-local_port = 1143
-remote_address = imap.gmail.com
-remote_port = 993
 ssl = True
 
-type = IMAPS
+[IMAPS-1993]
+server_address = imap.gmail.com
+server_port = 993
 local_address = 0.0.0.0
-local_port = 1993
-remote_address = imap.gmail.com
-remote_port = 993
 ssl = True
 
-type = POP
+[POP-1110]
+server_address = pop.gmail.com
+server_port = 995
 local_address = 0.0.0.0
-local_port = 1110
-remote_address = pop.gmail.com
-remote_port = 995
 ssl = True
 
-type = POP3S
+[POP3S-1995]
+server_address = pop.gmail.com
+server_port = 995
 local_address = 0.0.0.0
-local_port = 1995
-remote_address = pop.gmail.com
-remote_port = 995
 ssl = True
 
-type = SMTP
+[SMTP-1025]
+server_address = smtp.gmail.com
+server_port = 587
+server_starttls = True
 local_address = 0.0.0.0
-local_port = 1025
-remote_address = smtp.gmail.com
-remote_port = 587
-ssl = STARTTLS
 
-type = SMTPS
+[SMTPS-1587]
+server_address = smtp.gmail.com
+server_port = 587
+server_starttls = True
 local_address = 0.0.0.0
-local_port = 1587
-remote_address = smtp.gmail.com
-remote_port = 587
-ssl = STARTTLS
 
-[Gmail:$EMAIL_ADDRESS]
-oauth2_client_id = $CLIENT_ID
-oauth2_client_secret = $CLIENT_SECRET
+[Account setup]
+# Gmail Konto-Konfiguration
+
+[$EMAIL_ADDRESS]
+permission_url = https://accounts.google.com/o/oauth2/auth
+token_url = https://oauth2.googleapis.com/token
 oauth2_scope = https://mail.google.com/
 oauth2_redirect_uri = $REDIRECT_URI
+client_id = $CLIENT_ID
+client_secret = $CLIENT_SECRET
 EOL
 
     else
         echo "Warnung: Unbekannter E-Mail-Provider '$EMAIL_PROVIDER'. Bitte konfiguriere die Datei $CONFIG_FILE manuell."
     fi
+    
+    # Zusätzliche Proxy-Einstellungen
+    cat >> "$CONFIG_FILE" << EOL
+
+[Advanced proxy configuration]
+delete_account_token_on_password_error = True
+encrypt_client_secret_on_first_use = False
+use_login_password_as_client_credentials_secret = False
+allow_catch_all_accounts = False
+EOL
     
     echo "Konfigurationsdatei wurde erstellt."
 else
