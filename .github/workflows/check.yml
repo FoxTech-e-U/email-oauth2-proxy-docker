@@ -1,0 +1,41 @@
+name: Check for new Email OAuth 2.0 Proxy Releases
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Täglich um Mitternacht UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      new_release: ${{ steps.check.outputs.new_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Check for new releases
+        id: check
+        run: |
+          # Aktuelle Version des originalen Repos abrufen
+          REPO="simonrob/email-oauth2-proxy"
+          LATEST_TAG=$(curl -s https://api.github.com/repos/$REPO/releases/latest | jq -r '.tag_name')
+          LATEST_VERSION=${LATEST_TAG#v}  # Entferne 'v' Präfix falls vorhanden
+          
+          echo "Latest version is: $LATEST_VERSION"
+          
+          # Prüfen ob bereits ein Docker Image mit diesem Tag existiert
+          if curl -s -f -L -o /dev/null https://hub.docker.com/v2/repositories/yggdrasilodin/email-oauth2-proxy/tags/$LATEST_VERSION; then
+            echo "Docker image for version $LATEST_VERSION already exists."
+            echo "new_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version detected: $LATEST_VERSION - will trigger build."
+            echo "new_release=true" >> $GITHUB_OUTPUT
+            echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.new_release == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.check.outputs.version }}
+    secrets: inherit
