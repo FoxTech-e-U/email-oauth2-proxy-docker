@@ -45,7 +45,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: foxtech/email-oauth2-proxy
+          images: yggdrasilodin/email-oauth2-proxy
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
