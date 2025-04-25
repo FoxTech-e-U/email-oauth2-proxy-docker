@@ -4,9 +4,9 @@ set -e
 CONFIG_FILE="/config/emailproxy.config"
 EXAMPLE_CONFIG_FILE="/config/emailproxy.config.example"
 
-# Prüfen ob eine Konfigurationsdatei existiert, wenn nicht, erstelle eine aus den Umgebungsvariablen
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Keine Konfigurationsdatei gefunden. Erstelle Konfiguration aus Umgebungsvariablen..."
+# Funktion zur Erstellung der Konfigurationsdatei
+create_config() {
+    echo "Erstelle neue Konfigurationsdatei aus Umgebungsvariablen..."
     
     # Grundgerüst für die Konfigurationsdatei
     cat > "$CONFIG_FILE" << EOL
@@ -65,6 +65,7 @@ permission_url = https://login.microsoftonline.com/common/oauth2/v2.0/authorize
 token_url = https://login.microsoftonline.com/common/oauth2/v2.0/token
 oauth2_scope = offline_access https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/POP.AccessAsUser.All https://outlook.office.com/SMTP.Send
 oauth2_redirect_uri = $REDIRECT_URI
+oauth2_redirect_listen_address = ${REDIRECT_LISTEN:-http://0.0.0.0:12345/}
 client_id = $CLIENT_ID
 client_secret = $CLIENT_SECRET
 EOL
@@ -115,6 +116,7 @@ permission_url = https://accounts.google.com/o/oauth2/auth
 token_url = https://oauth2.googleapis.com/token
 oauth2_scope = https://mail.google.com/
 oauth2_redirect_uri = $REDIRECT_URI
+oauth2_redirect_listen_address = ${REDIRECT_LISTEN:-http://0.0.0.0:12345/}
 client_id = $CLIENT_ID
 client_secret = $CLIENT_SECRET
 EOL
@@ -134,8 +136,24 @@ allow_catch_all_accounts = False
 EOL
     
     echo "Konfigurationsdatei wurde erstellt."
+}
+
+# Prüfen, ob eine Konfigurationsdatei existiert
+if [ ! -f "$CONFIG_FILE" ]; then
+    create_config
 else
-    echo "Bestehende Konfigurationsdatei gefunden. Verwende vorhandene Konfiguration."
+    echo "Bestehende Konfigurationsdatei gefunden. Prüfe ob sie valide ist..."
+    
+    # Versuche die Konfigurationsdatei zu validieren
+    if grep -q "type.*office365" "$CONFIG_FILE"; then
+        echo "Fehlerhafte Konfigurationsdatei gefunden. Erstelle Backup und generiere neu..."
+        # Erstelle ein Backup der alten Konfiguration
+        cp "$CONFIG_FILE" "${CONFIG_FILE}.backup-$(date +%Y%m%d%H%M%S)"
+        # Erstelle neue Konfiguration
+        create_config
+    else
+        echo "Bestehende Konfigurationsdatei scheint valide zu sein. Verwende vorhandene Konfiguration."
+    fi
 fi
 
 # Debug-Modus aktivieren, wenn gewünscht
