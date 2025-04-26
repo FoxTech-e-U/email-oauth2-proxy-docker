@@ -61,8 +61,8 @@ local_address = 0.0.0.0
 # Office 365 Konto-Konfiguration
 
 [$EMAIL_ADDRESS]
-permission_url = https://login.microsoftonline.com/common/oauth2/v2.0/authorize
-token_url = https://login.microsoftonline.com/common/oauth2/v2.0/token
+permission_url = ${AUTH_URL:-https://login.microsoftonline.com/common/oauth2/v2.0/authorize}
+token_url = ${TOKEN_URL:-https://login.microsoftonline.com/common/oauth2/v2.0/token}
 oauth2_scope = offline_access https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/POP.AccessAsUser.All https://outlook.office.com/SMTP.Send
 redirect_uri = $REDIRECT_URI
 redirect_listen_address = ${REDIRECT_LISTEN:-http://0.0.0.0:12345/}
@@ -115,8 +115,8 @@ local_address = 0.0.0.0
 permission_url = https://accounts.google.com/o/oauth2/auth
 token_url = https://oauth2.googleapis.com/token
 oauth2_scope = https://mail.google.com/
-oauth2_redirect_uri = $REDIRECT_URI
-oauth2_redirect_listen_address = ${REDIRECT_LISTEN:-http://0.0.0.0:12345/}
+redirect_uri = $REDIRECT_URI
+redirect_listen_address = ${REDIRECT_LISTEN:-http://0.0.0.0:12345/}
 client_id = $CLIENT_ID
 client_secret = $CLIENT_SECRET
 EOL
@@ -164,6 +164,14 @@ else
     EXTRA_ARGS=""
 fi
 
+# Auth-Modus bestimmen
+AUTH_MODE=""
+if [ "$EXTERNAL_AUTH" = "true" ]; then
+    AUTH_MODE="--external-auth"
+else
+    AUTH_MODE="--local-server-auth"
+fi
+
 # Start des Email OAuth 2.0 Proxy
 echo "Starte Email OAuth 2.0 Proxy..."
-exec python emailproxy.py --no-gui --config-file "$CONFIG_FILE" --local-server-auth $EXTRA_ARGS
+exec python emailproxy.py --no-gui --config-file "$CONFIG_FILE" $AUTH_MODE $EXTRA_ARGS
