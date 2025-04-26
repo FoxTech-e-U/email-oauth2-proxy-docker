@@ -55,32 +55,43 @@ Um den Proxy nutzen zu können, benötigen Sie OAuth 2.0 Client Credentials für
 
 Notieren Sie sich die Client-ID und den Client-Secret für die `stack.env`-Datei.
 
-## Erstmalige Authentifizierung mit SSH-Tunnel
+## Erstmalige Authentifizierung
 
-**WICHTIG:** Für die erste Authentifizierung muss unbedingt ein SSH-Tunnel eingerichtet werden. Dies ist ein erforderlicher Schritt, da der OAuth-Callback-Prozess einen Webserver auf Port 12345 verwendet, der von Ihrem Browser aus erreichbar sein muss.
+**Wichtig:** Für die erste Authentifizierung muss der OAuth-Callback-Port (12345) von Ihrem Browser aus erreichbar sein.
 
-### SSH-Tunnel einrichten:
+### Methode 1: Direkte Authentifizierung mit curl (empfohlen wenn der Server nicht extern erreichbar ist)
 
-1. Führen Sie auf Ihrem lokalen Computer den folgenden Befehl aus:
-   ```bash
-   ssh -L 12345:localhost:12345 benutzer@server-ip
-   ```
-   Ersetzen Sie `benutzer` und `server-ip` mit Ihren tatsächlichen Zugangsdaten.
+Diese Methode ist besonders nützlich, wenn der Server nicht von überall erreichbar ist oder wenn SSH-Tunneling nicht möglich ist:
 
-2. Lassen Sie diese SSH-Verbindung offen während des Authentifizierungsprozesses.
+1. Verbinden Sie Ihren E-Mail-Client mit dem Proxy, um die Authentifizierung zu starten
 
-3. Verbinden Sie Ihren E-Mail-Client mit dem Proxy, um die Authentifizierung zu starten.
-
-4. Die Authentifizierungs-URL wird in den Container-Logs angezeigt:
+2. In den Container-Logs wird eine Authentifizierungs-URL angezeigt:
    ```bash
    docker logs email-oauth2-proxy
    ```
 
-5. Öffnen Sie diese URL in Ihrem lokalen Browser
-   - Durch den SSH-Tunnel wird die OAuth-Antwort automatisch zurück zum Container geleitet
-   - Nach erfolgreicher Authentifizierung werden die Token gespeichert und der Proxy funktioniert
+3. Kopieren Sie diese URL und öffnen Sie sie in einem Browser auf Ihrem lokalen Rechner
 
-6. Nach erfolgreicher Authentifizierung können Sie den SSH-Tunnel schließen.
+4. Nach erfolgreicher Anmeldung werden Sie zu einer URL mit einem Code weitergeleitet. Diese URL beginnt mit `http://localhost:12345/...`
+
+5. Kopieren Sie die vollständige URL und führen Sie auf dem Server folgenden Befehl aus:
+   ```bash
+   curl 'http://localhost:12345/...' # Ersetzen Sie dies mit der vollständigen Redirect-URL
+   ```
+   
+   Dadurch wird die Authentifizierungsantwort direkt an den lokalen Server gesendet, ohne dass ein SSH-Tunnel benötigt wird.
+
+### Methode 2: SSH-Tunneling
+
+1. Starten Sie einen SSH-Tunnel von Ihrem lokalen Computer zum Server:
+   ```bash
+   ssh -L 12345:localhost:12345 benutzer@server-ip
+   ```
+
+2. Verbinden Sie Ihren E-Mail-Client mit dem Proxy, um die Authentifizierung zu starten
+
+3. Öffnen Sie die Authentifizierungs-URL in Ihrem lokalen Browser
+   - Die OAuth-Antwort wird durch den SSH-Tunnel zurück zum Container geleitet
 
 ## E-Mail-Client konfigurieren
 
@@ -142,7 +153,7 @@ Wenn die OAuth-Authentifizierung fehlschlägt:
 
 1. Überprüfen Sie, ob die Redirect URI in Ihrer Azure App-Registrierung exakt mit `REDIRECT_URI` übereinstimmt
 2. Stellen Sie sicher, dass Port 12345 nicht blockiert ist
-3. **Prüfen Sie, ob Sie einen SSH-Tunnel korrekt eingerichtet haben**
+3. Versuchen Sie die direkte Authentifizierung mit curl oder SSH-Tunneling
 4. Prüfen Sie die Container-Logs mit `docker logs email-oauth2-proxy`
 5. Aktivieren Sie den Debug-Modus mit `DEBUG_MODE=true`
 
