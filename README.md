@@ -8,9 +8,9 @@ Entwickelt von [FoxTech e.U.](https://foxtech.at)
 
 - Automatisierte Docker-Builds bei neuen Releases
 - Einfache Konfiguration über Stack-Umgebungsvariablen (Portainer-kompatibel)
-- Vorkonfigurierte Ports für IMAP, POP3 und SMTP
+- Unterstützung für tenant-spezifische Office 365-Konfigurationen
+- Unterstützung für Shared Mailboxes
 - Persistente Konfiguration und Token-Speicherung
-- Headless-Modus mit lokalem Webserver für Authentifizierung
 
 ## Schnellstart
 
@@ -18,10 +18,11 @@ Entwickelt von [FoxTech e.U.](https://foxtech.at)
 
 1. Klone dieses Repository oder lade die Dateien herunter
 2. Passe die `stack.env` Datei an (insbesondere CLIENT_ID, CLIENT_SECRET und EMAIL_ADDRESS)
-3. Starte den Container:
+3. Stelle sicher, dass Port 12345 für die OAuth-Authentifizierung freigegeben ist
+4. Starte den Container:
 
 ```bash
-docker-compose --env-file stack.env up -d
+docker-compose up -d
 ```
 
 ### Mit Portainer
@@ -32,9 +33,79 @@ docker-compose --env-file stack.env up -d
 4. Passe die Variablen an (insbesondere CLIENT_ID, CLIENT_SECRET und EMAIL_ADDRESS)
 5. Starte den Stack
 
+## OAuth 2.0 Client Credentials einrichten
+
+Um den Proxy nutzen zu können, benötigen Sie OAuth 2.0 Client Credentials für Ihren E-Mail-Provider:
+
+### Office 365 App-Registrierung erstellen:
+
+1. Gehen Sie zu [portal.azure.com](https://portal.azure.com)
+2. Navigieren Sie zu "App-Registrierungen" → "Neue Registrierung"
+3. Geben Sie einen Namen ein und wählen Sie den richtigen Kontotyp 
+   - Für eigene Tenants: "Nur Konten in diesem Organisationsverzeichnis"
+   - Für gemeinsame Tenants: "Konten in einem Organisationsverzeichnis"
+4. Setzen Sie als Umleitungs-URI: `http://localhost:12345/`
+5. Unter "Zertifikate & Geheimnisse" erstellen Sie einen neuen Client-Secret
+6. Unter "API-Berechtigungen" fügen Sie hinzu:
+   - Microsoft Graph → Delegierte Berechtigungen
+   - IMAP.AccessAsUser.All
+   - POP.AccessAsUser.All
+   - SMTP.Send
+   - offline_access
+
+Notieren Sie sich die Client-ID und den Client-Secret für die `stack.env`-Datei.
+
+## Erstmalige Authentifizierung mit SSH-Tunnel
+
+**WICHTIG:** Für die erste Authentifizierung muss unbedingt ein SSH-Tunnel eingerichtet werden. Dies ist ein erforderlicher Schritt, da der OAuth-Callback-Prozess einen Webserver auf Port 12345 verwendet, der von Ihrem Browser aus erreichbar sein muss.
+
+### SSH-Tunnel einrichten:
+
+1. Führen Sie auf Ihrem lokalen Computer den folgenden Befehl aus:
+   ```bash
+   ssh -L 12345:localhost:12345 benutzer@server-ip
+   ```
+   Ersetzen Sie `benutzer` und `server-ip` mit Ihren tatsächlichen Zugangsdaten.
+
+2. Lassen Sie diese SSH-Verbindung offen während des Authentifizierungsprozesses.
+
+3. Verbinden Sie Ihren E-Mail-Client mit dem Proxy, um die Authentifizierung zu starten.
+
+4. Die Authentifizierungs-URL wird in den Container-Logs angezeigt:
+   ```bash
+   docker logs email-oauth2-proxy
+   ```
+
+5. Öffnen Sie diese URL in Ihrem lokalen Browser
+   - Durch den SSH-Tunnel wird die OAuth-Antwort automatisch zurück zum Container geleitet
+   - Nach erfolgreicher Authentifizierung werden die Token gespeichert und der Proxy funktioniert
+
+6. Nach erfolgreicher Authentifizierung können Sie den SSH-Tunnel schließen.
+
+## E-Mail-Client konfigurieren
+
+Konfigurieren Sie Ihren E-Mail-Client mit den folgenden Einstellungen:
+
+- **IMAP-Server**: IP-Adresse des Docker-Hosts
+- **IMAP-Port**: 1143 (unverschlüsselt) oder 1993 (SSL/TLS)
+- **POP3-Server**: IP-Adresse des Docker-Hosts
+- **POP3-Port**: 1110 (unverschlüsselt) oder 1995 (SSL/TLS)
+- **SMTP-Server**: IP-Adresse des Docker-Hosts
+- **SMTP-Port**: 1025 (unverschlüsselt) oder 1587 (SSL/TLS)
+- **Benutzername**: Ihre vollständige E-Mail-Adresse
+- **Passwort**: Kann ein beliebiger Wert sein, da die OAuth-Authentifizierung separat erfolgt
+
+## Shared Mailboxes verwenden
+
+Email OAuth 2.0 Proxy unterstützt Office 365 Shared Mailboxes. Konfiguration:
+
+1. Verwenden Sie die E-Mail-Adresse der Shared Mailbox in `EMAIL_ADDRESS`
+2. Bei der Authentifizierung melden Sie sich mit einem Benutzerkonto an, das Zugriff auf die Shared Mailbox hat
+3. Stellen Sie sicher, dass SMTP-Client-Authentifizierung im Tenant aktiviert ist
+
 ## Konfiguration
 
-Die Konfiguration erfolgt über Umgebungsvariablen in der `stack.env` Datei:
+### Umgebungsvariablen in stack.env
 
 | Variable | Beschreibung | Standard |
 |----------|-------------|---------|
@@ -42,7 +113,10 @@ Die Konfiguration erfolgt über Umgebungsvariablen in der `stack.env` Datei:
 | `CLIENT_ID` | OAuth 2.0 Client ID | (erforderlich) |
 | `CLIENT_SECRET` | OAuth 2.0 Client Secret | (erforderlich) |
 | `EMAIL_ADDRESS` | E-Mail-Adresse | (erforderlich) |
+| `AUTH_URL` | OAuth 2.0 Autorisierungs-URL | https://login.microsoftonline.com/common/oauth2/v2.0/authorize |
+| `TOKEN_URL` | OAuth 2.0 Token-URL | https://login.microsoftonline.com/common/oauth2/v2.0/token |
 | `REDIRECT_URI` | OAuth 2.0 Redirect URI | http://localhost:12345/ |
+| `REDIRECT_LISTEN` | Adresse, auf der der Proxy auf OAuth-Callbacks lauscht | http://0.0.0.0:12345/ |
 | `DEBUG_MODE` | Debug-Modus aktivieren | false |
 | `IMAP_PORT` | Lokaler IMAP-Port | 1143 |
 | `IMAPS_PORT` | Lokaler IMAPS-Port | 1993 |
@@ -52,72 +126,55 @@ Die Konfiguration erfolgt über Umgebungsvariablen in der `stack.env` Datei:
 | `SMTPS_PORT` | Lokaler SMTPS-Port | 1587 |
 | `NETWORK_MODE` | Docker-Netzwerkmodus | bridge |
 
-## OAuth 2.0 Client Credentials
-
-Um den Proxy nutzen zu können, benötigen Sie OAuth 2.0 Client Credentials für Ihren E-Mail-Provider:
-
-### Office 365
-Registrieren Sie eine neue [Microsoft Identity-Anwendung](https://learn.microsoft.com/entra/identity-platform/quickstart-register-app)
-
-### Gmail / Google Workspace
-Registrieren Sie eine [Google API Desktop-App](https://developers.google.com/identity/protocols/oauth2/native-app)
-
-Weitere Informationen finden Sie in der [offiziellen Dokumentation](https://github.com/simonrob/email-oauth2-proxy#oauth-20-client-credentials).
-
-## Authentifizierung
-
-Nach dem Start des Containers muss das E-Mail-Konto authentifiziert werden:
-
-1. Überprüfe die Container-Logs:
-```bash
-docker logs email-oauth2-proxy
-```
-
-2. Suche nach einer URL, die mit "Please visit the following URL to authorise access" beginnt
-3. Öffne diese URL in deinem Browser und folge den Anweisungen
-4. Nach erfolgreicher Authentifizierung werden die Token in der Konfigurationsdatei gespeichert
-
-## E-Mail-Client konfigurieren
-
-Konfiguriere deinen E-Mail-Client mit den folgenden Einstellungen:
-
-- **IMAP-Server**: IP-Adresse des Docker-Hosts (z.B. `127.0.0.1` für lokale Installationen)
-- **IMAP-Port**: 1143 (unverschlüsselt) oder 1993 (SSL/TLS)
-- **POP3-Server**: IP-Adresse des Docker-Hosts
-- **POP3-Port**: 1110 (unverschlüsselt) oder 1995 (SSL/TLS)
-- **SMTP-Server**: IP-Adresse des Docker-Hosts
-- **SMTP-Port**: 1025 (unverschlüsselt) oder 1587 (SSL/TLS)
-- **Benutzername**: Deine vollständige E-Mail-Adresse
-- **Passwort**: Kann ein beliebiger Wert sein, da die OAuth-Authentifizierung separat erfolgt
-
 ## Problembehandlung
+
+### SMTP-Authentifizierung schlägt fehl
+
+Wenn Sie die Fehlermeldung "smtpclientauthentication is disabled for the tenant" erhalten:
+
+1. Melden Sie sich beim [Microsoft 365 Admin Center](https://admin.microsoft.com) an
+2. Navigieren Sie zu "Einstellungen" → "Organisationseinstellungen" → "Sicherheit und Datenschutz" → "SMTP-Einstellungen"
+3. Aktivieren Sie die Option "SMTP-Client-Authentifizierung"
 
 ### Authentifizierungsprobleme
 
-Wenn die Web-Authentifizierung fehlschlägt, versuche:
+Wenn die OAuth-Authentifizierung fehlschlägt:
 
-1. Den Container mit dem Host-Netzwerkmodus zu starten (setze `NETWORK_MODE=host` in der `stack.env`-Datei)
-2. Die `REDIRECT_URI` in der `stack.env`-Datei zu überprüfen
-3. Aktiviere den Debug-Modus mit `DEBUG_MODE=true`
+1. Überprüfen Sie, ob die Redirect URI in Ihrer Azure App-Registrierung exakt mit `REDIRECT_URI` übereinstimmt
+2. Stellen Sie sicher, dass Port 12345 nicht blockiert ist
+3. **Prüfen Sie, ob Sie einen SSH-Tunnel korrekt eingerichtet haben**
+4. Prüfen Sie die Container-Logs mit `docker logs email-oauth2-proxy`
+5. Aktivieren Sie den Debug-Modus mit `DEBUG_MODE=true`
 
-### Verbindungsprobleme
+### "No reply address is registered for the application"
 
-Stelle sicher, dass:
-- Die Ports im Docker Compose richtig konfiguriert sind
-- Die Container-IP-Adresse von deinem E-Mail-Client aus erreichbar ist
-- Die Firewall-Einstellungen die entsprechenden Ports zulassen
+Dieser Fehler bedeutet, dass die Redirect URI in Ihrer App-Registrierung fehlt oder nicht korrekt ist:
 
-## Erweiterte Konfiguration
+1. Gehen Sie zu Azure Portal → App-Registrierungen → Ihre App → Authentifizierung
+2. Fügen Sie unter "Plattformkonfigurationen" → "Web" genau die gleiche URL hinzu, die Sie als `REDIRECT_URI` verwenden
+3. Stellen Sie sicher, dass der Schrägstrich am Ende übereinstimmt (z.B. `http://localhost:12345/`)
 
-Für fortgeschrittene Konfigurationen (mehrere Konten, benutzerdefinierte Server, etc.) kann eine manuelle Konfigurationsdatei verwendet werden. Erstelle eine `emailproxy.config` Datei im `config`-Verzeichnis nach dem [offiziellen Beispiel](https://github.com/simonrob/email-oauth2-proxy/blob/main/emailproxy.config).
+### "Application is not configured as a multi-tenant application"
+
+Wenn Ihre App als Single-Tenant konfiguriert ist, aber Sie den `/common`-Endpunkt verwenden:
+
+1. In der `stack.env` setzen Sie `AUTH_URL` und `TOKEN_URL` so, dass sie Ihre spezifische Tenant-ID enthalten:
+   ```
+   AUTH_URL=https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/authorize
+   TOKEN_URL=https://login.microsoftonline.com/YOUR_TENANT_ID/oauth2/v2.0/token
+   ```
+
+2. Oder ändern Sie Ihre App in Azure zu "Multi-tenant":
+   - Gehen Sie zu App-Registrierungen → Ihre App → Authentifizierung
+   - Ändern Sie "Unterstützte Kontotypen" auf "Konten in einem beliebigen Organisationsverzeichnis"
 
 ## Automatische Updates
 
-Das Docker-Image wird automatisch bei neuen Releases des originalen Email OAuth 2.0 Proxy-Projekts aktualisiert. Um immer die neueste Version zu verwenden, führe regelmäßig:
+Das Docker-Image wird automatisch bei neuen Releases des originalen Email OAuth 2.0 Proxy-Projekts aktualisiert. Um immer die neueste Version zu verwenden, führen Sie regelmäßig:
 
 ```bash
-docker-compose --env-file stack.env pull
-docker-compose --env-file stack.env up -d
+docker-compose pull
+docker-compose up -d
 ```
 
 ## Lizenz
